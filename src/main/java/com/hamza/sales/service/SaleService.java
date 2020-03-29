@@ -33,8 +33,8 @@ public class SaleService {
     ProductRepository prodRepo;
     @Autowired
     SoldProductRepository soldProdRepo;
-    
-    private final static Logger logger = LoggerFactory.getLogger(SaleService.class);
+
+    private final static Logger LOGGER = LoggerFactory.getLogger(SaleService.class);
 
     public List<Sale> gettAllSales() {
         return saleRepo.findAll();
@@ -45,43 +45,35 @@ public class SaleService {
         Client client = clientRepo.findById(clientId)
                 .orElseThrow(() -> new ResourceNotFoundException("Client not found: ", "ID", clientId));
         Seller seller = sellerRepo.findById(sellerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Seller not found: ", "ID", clientId));
+                .orElseThrow(() -> new ResourceNotFoundException("Seller not found: ", "ID", sellerId));
 
         Sale sale = new Sale();
         sale.setClientId(client);
         sale.setSellerId(seller);
 
+        sale = saleRepo.save(sale);
+
         double total = 0;
+
         for (SoldProduct soldProduct : list) {
+            SoldProductPK soldProductPK = new SoldProductPK();
+            soldProductPK.setSaleId(sale.getId());
             Product p = prodRepo.findById(soldProduct.getProduct().getId())
                     .orElseThrow(() -> new ResourceNotFoundException("Product not found: ", "ID", clientId));
             total += (p.getPrice().doubleValue() * soldProduct.getQuantity());
-        }
-
-        sale.setTotal(new BigDecimal(total));
-        Sale savedSale = saleRepo.save(sale);
-
-        /**
-         * ****************
-         */
-        for (SoldProduct soldProduct : list) {
-            SoldProductPK soldProductPK = new SoldProductPK();
-            soldProductPK.setSaleId(savedSale.getId());
-            Product p = prodRepo.findById(soldProduct.getProduct().getId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Product not found: ", "ID", clientId));
             soldProductPK.setProductId(p.getId());
 
             soldProduct.setSoldProductPK(soldProductPK);
             soldProduct.setQuantity(soldProduct.getQuantity());
             soldProduct.setSalePrice(p.getPrice());
-            soldProduct.setSale(savedSale);
+            soldProduct.setSale(sale);
             soldProdRepo.save(soldProduct);
-            savedSale.getSoldProductList().add(soldProduct);
+            sale.getSoldProductList().add(soldProduct);
         }
 
-        savedSale = saleRepo.save(sale);
+        sale.setTotal(new BigDecimal(total));
+        return saleRepo.save(sale);
 
-        return savedSale;
     }
 
     public Sale upsateQP(SoldProduct sp) {
@@ -96,8 +88,8 @@ public class SaleService {
         sale.setTotal(tempTotal.add(new BigDecimal(sp.getQuantity() * sp.getSalePrice().doubleValue())));
 
         saleRepo.save(sale);
-        
-        logger.info("Product ID: " + sp.getProduct().getId() + " in Sale ID: " + sp.getSale().getId() + "[ Quantity: " + mySP.getQuantity() + " =====> " + sp.getQuantity() + ", Price: " + mySP.getSalePrice() + " =====> " + sp.getSalePrice() + " ]");
+
+        LOGGER.info("Product ID: " + sp.getProduct().getId() + " in Sale ID: " + sp.getSale().getId() + "[ Quantity: " + mySP.getQuantity() + " =====> " + sp.getQuantity() + ", Price: " + mySP.getSalePrice() + " =====> " + sp.getSalePrice() + " ]");
 
         mySP.setQuantity(sp.getQuantity());
         mySP.setSalePrice(sp.getSalePrice());
